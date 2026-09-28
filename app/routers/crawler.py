@@ -11,96 +11,57 @@ router = APIRouter(prefix="/crawler", tags=["Crawler"])
 
 
 @router.post("/run", status_code=status.HTTP_200_OK)
-async def run_crawler(
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Manually trigger Sporttery data crawl.
-    """
+async def run_crawler(db: AsyncSession = Depends(get_db)):
     try:
         logger.info("Manual crawler trigger received")
         crawler = SportteryCrawlerService(db)
         result = await crawler.crawl()
-        return {
-            "success": True,
-            "message": "Crawl completed successfully",
-            "data": result,
-        }
+        return {"success": True, "message": "Crawl completed successfully", "data": result}
     except Exception as e:
         logger.error(f"Crawler failed: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Crawler failed: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Crawler failed: {str(e)}")
 
 
 @router.get("/status")
 async def crawler_status():
-    return {
-        "status": "ready",
-        "source": "sporttery.cn",
-        "api_url": "https://webapi.sporttery.cn/gateway/jc/football/getMatchCalculatorV1.qry",
-        "note": "Use POST /api/crawler/run to trigger manual crawl",
-    }
+    return {"status": "ready", "source": "sporttery.cn"}
 
 
-@router.get("/debug-fetch")
-async def debug_fetch():
-    """Debug endpoint: test multiple fetch strategies."""
+@router.get("/debug-proxies")
+async def debug_proxies():
+    """Test if any free proxy can reach sporttery."""
     import httpx
-    import time
     
     results = {}
-    
-    # Strategy 1: Direct request (current approach)
-    url = "https://webapi.sporttery.cn/gateway/jc/football/getMatchCalculatorV1.qry"
-    params = {
-        "poolCode": ["had", "hhad"],
-        "_": str(int(time.time() * 1000))
-    }
-    base_headers = {
+    target_url = "https://webapi.sporttery.cn/gateway/jc/football/getMatchCalculatorV1.qry?poolCode=had&_=1"
+    headers = {
         "User-Agent": "Mozilla/5.0 (Linux; Android 10; SM-G960U) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
-        "Accept": "application/json, text/javascript, */*; q=0.01",
-        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
-        "Referer": "https://www.sporttery.cn/",
     }
     
+    # Test 1: corsproxy.io
     try:
-        with httpx.Client(timeout=30, follow_redirects=True) as client:
-            resp = client.get(url, params=params, headers=base_headers)
-            results["direct"] = {
-                "status": resp.status_code,
-                "content_type": resp.headers.get("content-type"),
-                "is_json": resp.headers.get("content-type", "").startswith("application/json"),
+        with httpx.Client(timeout=15) as client:
+            r = client.get(f"https://corsproxy.io/?{target_url}", headers=headers)
+            ct = r.headers.get("content-type", "")
+            results["corsproxy"] = {
+                "status": r.status_code,
+                "content_type": ct,
+                "is_json": ct.startswith("application/json"),
             }
+            if ct.startswith("application/json"):
+                results["corsproxy"]["preview"] = r.text[:200]
     except Exception as e:
-        results["direct"] = {"error": str(e)}
+        results["corsproxy"] = {"error": str(e)[:200]}
     
-    # Strategy 2: Cookie-based request
+    # Test 2: allorigins.win
     try:
-        with httpx.Client(timeout=30, follow_redirects=True) as client:
-            # First visit main page to get cookies
-            main_resp = client.get("https://www.sporttery.cn/", headers={
-                "User-Agent": base_headers["User-Agent"],
-            })
-            results["main_page_status"] = main_resp.status_code
-            results["main_page_cookies"] = dict(client.cookies)
-            
-            # Then make API request with cookies
-            resp2 = client.get(url, params=params, headers=base_headers)
-            results["with_cookies"] = {
-                "status": resp2.status_code,
-                "content_type": resp2.headers.get("content-type"),
-                "is_json": resp2.headers.get("content-type", "").startswith("application/json"),
+        with httpx.Client(timeout=15) as client:
+            r = client.get(f"https://api.allorigins.win/get?url={target_url}", headers=headers)
+            results["allorigins"] = {
+                "status": r.status_code,
+                "content_type": r.headers.get("content-type"),
             }
-            if resp2.status_code == 200:
-                try:
-                    data = resp2.json()
-                    results["with_cookies"]["success"] = data.get("success")
-                    results["with_cookies"]["errorCode"] = data.get("errorCode")
-                except:
-                    pass
     except Exception as e:
-        results["with_cookies"] = {"error": str(e)}
+        results["allorigins"] = {"error": str(e)[:200]}
     
     return results
