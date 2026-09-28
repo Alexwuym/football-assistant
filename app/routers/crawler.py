@@ -47,3 +47,47 @@ async def crawler_status():
         "api_url": "https://webapi.sporttery.cn/gateway/jc/football/getMatchCalculatorV1.qry",
         "note": "Use POST /api/crawler/run to trigger manual crawl",
     }
+
+
+@router.get("/debug-fetch")
+async def debug_fetch():
+    """Debug endpoint: directly fetch sporttery API and return diagnostics."""
+    import httpx
+    import time
+    
+    url = "https://webapi.sporttery.cn/gateway/jc/football/getMatchCalculatorV1.qry"
+    params = {
+        "poolCode": ["had", "hhad"],
+        "_": str(int(time.time() * 1000))
+    }
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Linux; Android 10; SM-G960U) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+        "Accept": "application/json, text/javascript, */*; q=0.01",
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+        "Referer": "https://www.sporttery.cn/",
+    }
+    
+    try:
+        with httpx.Client(timeout=30, follow_redirects=True) as client:
+            resp = client.get(url, params=params, headers=headers)
+            body = resp.text[:2000]
+            try:
+                json_body = resp.json()
+                json_preview = {k: v for k, v in json_body.items() if k != "value"}
+                if "value" in json_body and isinstance(json_body["value"], dict):
+                    mil = json_body["value"].get("matchInfoList", [])
+                    json_preview["matchInfoList_count"] = len(mil)
+            except Exception:
+                json_preview = None
+                
+            return {
+                "status_code": resp.status_code,
+                "headers": dict(resp.headers),
+                "body_preview": body,
+                "json_preview": json_preview,
+            }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+        }
