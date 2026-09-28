@@ -86,12 +86,6 @@ class FixtureService:
         """Get fixture by external ID."""
         result = await db.execute(
             select(Fixture)
-            .options(
-                selectinload(Fixture.league),
-                selectinload(Fixture.home_team),
-                selectinload(Fixture.away_team),
-                selectinload(Fixture.odds)
-            )
             .where(Fixture.fixture_id == external_id)
         )
         return result.scalar_one_or_none()
@@ -107,7 +101,8 @@ class FixtureService:
         db_fixture = Fixture(**fixture_data.model_dump())
         db.add(db_fixture)
         await db.flush()
-        await db.refresh(db_fixture)
+        # Do NOT refresh - avoid lazy loading issues in async mode
+        # The fixture object already has all data from model_dump
         return db_fixture
 
     @staticmethod
@@ -120,6 +115,7 @@ class FixtureService:
         for data in fixtures_data:
             fixture = await FixtureService.create_fixture(db, data)
             created.append(fixture)
+        await db.flush()
         return created
 
     @staticmethod
@@ -171,5 +167,4 @@ class FixtureService:
             fixture.away_score = away_score
 
         await db.flush()
-        await db.refresh(fixture)
         return fixture
