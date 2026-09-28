@@ -369,6 +369,7 @@ class SportteryCrawlerService:
         fixtures_updated = 0
         odds_saved = 0
         total_matches = 0
+        errors = []
 
         for day_info in match_info_list:
             for match in day_info.get("subMatchList", []):
@@ -403,7 +404,9 @@ class SportteryCrawlerService:
                     await asyncio.sleep(0.1)
 
                 except Exception as e:
-                    logger.error(f"Error processing match {match.get('matchId')}: {e}")
+                    err_msg = f"Error processing match {match.get('matchId')}: {e}"
+                    logger.error(err_msg)
+                    errors.append({"match_id": match.get("matchId"), "error": str(e)})
                     continue
 
         await self.db.commit()
@@ -415,10 +418,13 @@ class SportteryCrawlerService:
             f"{odds_saved} odds saved, {elapsed:.2f}s"
         )
 
-        return {
+        result = {
             "total_matches": total_matches,
             "fixtures_created": fixtures_created,
             "fixtures_updated": fixtures_updated,
             "odds_saved": odds_saved,
             "elapsed_seconds": round(elapsed, 2),
         }
+        if errors:
+            result["errors"] = errors[:5]  # limit error details
+        return result
