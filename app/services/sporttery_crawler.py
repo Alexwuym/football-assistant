@@ -3,6 +3,7 @@
 Fetches match schedules and odds from the official Sporttery API
 and saves them to the database using the existing async SQLAlchemy models.
 """
+import asyncio
 import json
 import logging
 import os
@@ -89,12 +90,16 @@ def _fetch_data(max_retries: int = 3, retry_delay: int = 5) -> Optional[Dict]:
             resp = httpx.get(url, headers=_get_headers(), timeout=30)
             resp.raise_for_status()
             data = resp.json()
-            if data.get("errorCode") == "0" and data.get("success"):
+            error_code = data.get("errorCode")
+            success = data.get("success")
+            # Handle both integer 0 and string "0"
+            is_ok = (error_code == 0 or error_code == "0") and success is True
+            if is_ok:
                 logger.info("Sporttery data fetched successfully")
                 return data
             else:
                 error_msg = data.get("errorMessage", "Unknown API error")
-                logger.warning(f"API error: {error_msg}")
+                logger.warning(f"API error: {error_msg} (code={error_code}, success={success})")
                 if attempt < max_retries:
                     time.sleep(retry_delay)
         except httpx.TimeoutException:
@@ -352,8 +357,8 @@ class SportteryCrawlerService:
                     odds_count = await self._save_odds(fixture.id, match)
                     odds_saved += odds_count
 
-                    # Throttle
-                    time.sleep(0.1)
+                    # Throttle - use asyncio.sleep instead of time.sleep
+                    await asyncio.sleep(0.1)
 
                 except Exception as e:
                     logger.error(f"Error processing match {match.get('matchId')}: {e}")
