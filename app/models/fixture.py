@@ -69,4 +69,4 @@ class Fixture(Base):
     )
 
     def __repr__(self):
-        return f"<Fixture(id={self.id}, {self.home_team.name_cn if self.home_team else '?'} vs {self.away_team.name_cn if self.away_team else '?'})>"
+        return f"<Fixture(id={self.id}, fixture_id={self.fixture_id})>"
