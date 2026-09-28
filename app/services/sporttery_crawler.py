@@ -10,7 +10,7 @@ import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-import requests
+import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -86,7 +86,7 @@ def _fetch_data(max_retries: int = 3, retry_delay: int = 5) -> Optional[Dict]:
     for attempt in range(1, max_retries + 1):
         try:
             logger.info(f"Fetching Sporttery data (attempt {attempt}/{max_retries})...")
-            resp = requests.get(url, headers=_get_headers(), timeout=30)
+            resp = httpx.get(url, headers=_get_headers(), timeout=30)
             resp.raise_for_status()
             data = resp.json()
             if data.get("errorCode") == "0" and data.get("success"):
@@ -97,11 +97,11 @@ def _fetch_data(max_retries: int = 3, retry_delay: int = 5) -> Optional[Dict]:
                 logger.warning(f"API error: {error_msg}")
                 if attempt < max_retries:
                     time.sleep(retry_delay)
-        except requests.exceptions.Timeout:
+        except httpx.TimeoutException:
             logger.warning(f"Request timeout (attempt {attempt})")
             if attempt < max_retries:
                 time.sleep(retry_delay)
-        except requests.exceptions.HTTPError as e:
+        except httpx.HTTPStatusError as e:
             logger.warning(f"HTTP error {e.response.status_code} (attempt {attempt})")
             if attempt < max_retries:
                 time.sleep(retry_delay)
