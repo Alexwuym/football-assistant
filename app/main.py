@@ -11,7 +11,7 @@ import traceback
 from app.core.config import settings
 from app.core.database import init_db, close_db
 from app.core.logging import logger
-from app.routers import health, fixtures, leagues, teams, odds
+from app.routers import health, fixtures, leagues, teams, odds, crawler
 
 
 @asynccontextmanager
@@ -101,6 +101,7 @@ app.include_router(fixtures.router, prefix=settings.API_PREFIX)
 app.include_router(leagues.router, prefix=settings.API_PREFIX)
 app.include_router(teams.router, prefix=settings.API_PREFIX)
 app.include_router(odds.router, prefix=settings.API_PREFIX)
+app.include_router(crawler.router, prefix=settings.API_PREFIX)
 
 
 @app.get("/")
