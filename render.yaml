@@ -1,0 +1,29 @@
+# Render Blueprint for Football Betting Assistant
+# Deploy with: https://render.com/blueprints
+# Or manually create services in Render Dashboard
+
+services:
+  - type: web
+    name: football-assistant-api
+    runtime: docker
+    plan: free
+    branch: main
+    dockerContext: .
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: DATABASE_URL_SYNC
+        fromDatabase:
+          name: football-assistant-db
+          property: connectionString
+      - key: CORS_ORIGINS
+        value: "https://jqhuv828m4q.feishu.cn,http://localhost:3000,http://localhost:5173"
+      - key: ENV_ID
+        value: "render-prod"
+      - key: REGION
+        value: "ap-guangzhou"
+    healthCheckPath: /health
+
+databases:
+  - name: football-assistant-db
+    plan: free
+    ipAllowList: []

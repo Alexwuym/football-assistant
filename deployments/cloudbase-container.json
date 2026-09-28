@@ -1,0 +1,34 @@
+{
+  "version": "2.0",
+  "envId": "{{ENV_ID}}",
+  "$schema": "https://framework-1258016615.tcloudbaseapp.com/schema/latest.json",
+  "framework": {
+    "name": "football-assistant",
+    "plugins": {
+      "server": {
+        "use": "@cloudbase/framework-plugin-container",
+        "inputs": {
+          "serviceName": "football-assistant",
+          "servicePath": "/",
+          "localPath": "./",
+          "uploadType": "image",
+          "containerPort": 8080,
+          "envVariables": {
+            "DATABASE_URL": "{{DATABASE_URL}}",
+            "DATABASE_URL_SYNC": "{{DATABASE_URL_SYNC}}",
+            "CORS_ORIGINS": "https://jqhuv828m4q.feishu.cn,http://localhost:3000,http://localhost:5173",
+            "ENV_ID": "{{ENV_ID}}"
+          },
+          "cpu": 0.25,
+          "mem": 0.5,
+          "minNum": 0,
+          "maxNum": 5,
+          "policyType": "cpu",
+          "policyThreshold": 60,
+          "customLogs": "stdout",
+          "initialDelaySeconds": 5
+        }
+      }
+    }
+  }
+}

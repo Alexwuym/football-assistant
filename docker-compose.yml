@@ -1,0 +1,42 @@
+# Local development with Docker Compose
+# Includes PostgreSQL for local testing
+
+version: "3.8"
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: football-assistant-db
+    environment:
+      POSTGRES_USER: football_user
+      POSTGRES_PASSWORD: football_pass
+      POSTGRES_DB: football_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U football_user -d football_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    container_name: football-assistant-api
+    environment:
+      DATABASE_URL: postgresql+asyncpg://football_user:football_pass@db:5432/football_db
+      DATABASE_URL_SYNC: postgresql://football_user:football_pass@db:5432/football_db
+      DEBUG: "true"
+      CORS_ORIGINS: "http://localhost:3000,http://localhost:5173,https://jqhuv828m4q.feishu.cn"
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./app:/app/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload
+
+volumes:
+  postgres_data:
