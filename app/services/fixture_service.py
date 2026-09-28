@@ -101,9 +101,19 @@ class FixtureService:
         db_fixture = Fixture(**fixture_data.model_dump())
         db.add(db_fixture)
         await db.flush()
-        # Do NOT refresh - avoid lazy loading issues in async mode
-        # The fixture object already has all data from model_dump
-        return db_fixture
+
+        # Re-query with preloaded relationships to avoid lazy loading in response serialization
+        result = await db.execute(
+            select(Fixture)
+            .options(
+                selectinload(Fixture.league),
+                selectinload(Fixture.home_team),
+                selectinload(Fixture.away_team),
+                selectinload(Fixture.odds)
+            )
+            .where(Fixture.id == db_fixture.id)
+        )
+        return result.scalar_one_or_none() or db_fixture
 
     @staticmethod
     async def create_fixtures_batch(
