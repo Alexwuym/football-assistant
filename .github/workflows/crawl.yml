@@ -20,7 +20,7 @@ env:
   PYTHON_VERSION: "3.11"
   API_BASE_URL: "https://football-assistant-api.onrender.com"
   DATABASE_URL: "postgresql://football_assistant_db_user:FdMXDDjAeGiHl9iIGmWbL3y3d61Gp8WQ@dpg-dat20ag473hc73edkqhg-a/football_assistant_db"
-  USE_DIRECT_DB: "true"
+  USE_DIRECT_DB: "false"
 
 jobs:
   crawl:
@@ -50,7 +50,7 @@ jobs:
         env:
           API_BASE_URL: ${{ env.API_BASE_URL }}
           DATABASE_URL: ${{ env.DATABASE_URL }}
-          USE_DIRECT_DB: "true"
+          USE_DIRECT_DB: "false"
         run: python local_crawler.py
 
       - name: Verify data on Render
