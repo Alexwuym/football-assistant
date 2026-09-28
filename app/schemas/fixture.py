@@ -77,9 +77,9 @@ class FixtureOddsInfo(BaseModel):
 class FixtureResponse(FixtureBase):
     """Schema for fixture response with related data."""
     id: int
-    league: FixtureLeagueInfo
-    home_team: FixtureTeamInfo
-    away_team: FixtureTeamInfo
+    league: Optional[FixtureLeagueInfo] = None
+    home_team: Optional[FixtureTeamInfo] = None
+    away_team: Optional[FixtureTeamInfo] = None
     odds: List[FixtureOddsInfo] = []
     created_at: datetime
     updated_at: datetime
