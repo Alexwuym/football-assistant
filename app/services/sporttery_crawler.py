@@ -83,13 +83,32 @@ def _get_headers() -> Dict[str, str]:
 def _fetch_data(max_retries: int = 3, retry_delay: int = 5) -> Optional[Dict]:
     """Fetch data from Sporttery API with retry logic."""
     url = _build_api_url()
+    last_error = ""
 
     for attempt in range(1, max_retries + 1):
         try:
             logger.info(f"Fetching Sporttery data (attempt {attempt}/{max_retries})...")
-            resp = httpx.get(url, headers=_get_headers(), timeout=30)
-            resp.raise_for_status()
-            data = resp.json()
+            logger.info(f"URL: {url[:120]}...")
+            resp = httpx.get(url, headers=_get_headers(), timeout=30, follow_redirects=True)
+            logger.info(f"Response status: {resp.status_code}")
+            logger.info(f"Response headers: {dict(resp.headers)}")
+            
+            if resp.status_code != 200:
+                last_error = f"HTTP {resp.status_code}: {resp.text[:500]}"
+                logger.warning(last_error)
+                if attempt < max_retries:
+                    time.sleep(retry_delay)
+                continue
+                
+            try:
+                data = resp.json()
+            except Exception as e:
+                last_error = f"JSON parse error: {e}, text: {resp.text[:500]}"
+                logger.warning(last_error)
+                if attempt < max_retries:
+                    time.sleep(retry_delay)
+                continue
+                
             error_code = data.get("errorCode")
             success = data.get("success")
             # Handle both integer 0 and string "0"
@@ -99,23 +118,27 @@ def _fetch_data(max_retries: int = 3, retry_delay: int = 5) -> Optional[Dict]:
                 return data
             else:
                 error_msg = data.get("errorMessage", "Unknown API error")
-                logger.warning(f"API error: {error_msg} (code={error_code}, success={success})")
+                last_error = f"API error: {error_msg} (code={error_code}, success={success})"
+                logger.warning(last_error)
                 if attempt < max_retries:
                     time.sleep(retry_delay)
         except httpx.TimeoutException:
-            logger.warning(f"Request timeout (attempt {attempt})")
+            last_error = f"Request timeout (attempt {attempt})"
+            logger.warning(last_error)
             if attempt < max_retries:
                 time.sleep(retry_delay)
         except httpx.HTTPStatusError as e:
-            logger.warning(f"HTTP error {e.response.status_code} (attempt {attempt})")
+            last_error = f"HTTP error {e.response.status_code} (attempt {attempt})"
+            logger.warning(last_error)
             if attempt < max_retries:
                 time.sleep(retry_delay)
         except Exception as e:
-            logger.warning(f"Request error: {e} (attempt {attempt})")
+            last_error = f"Request error: {e} (attempt {attempt})"
+            logger.warning(last_error)
             if attempt < max_retries:
                 time.sleep(retry_delay)
 
-    logger.error(f"Failed to fetch data after {max_retries} attempts")
+    logger.error(f"Failed to fetch data after {max_retries} attempts. Last error: {last_error}")
     return None
 
 
