@@ -7,7 +7,7 @@ services:
     name: football-assistant-api
     runtime: docker
     plan: free
-    branch: main
+    branch: master
     dockerContext: .
     dockerfilePath: ./Dockerfile
     envVars:
