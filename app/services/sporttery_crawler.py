@@ -172,7 +172,6 @@ class SportteryCrawlerService:
                 name_cn=league_name,
                 name_en=league_name,
                 country="中国",
-                source="sporttery",
             )
             self.db.add(league)
             await self.db.flush()
@@ -195,7 +194,6 @@ class SportteryCrawlerService:
                 name_en=team_name,
                 short_name=team_name,
                 league_id=league_id,
-                source="sporttery",
             )
             self.db.add(team)
             await self.db.flush()
