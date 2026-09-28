@@ -336,6 +336,21 @@ class SportteryCrawlerService:
             db_odds = Odds(**odds_data.model_dump())
             self.db.add(db_odds)
 
+    async def process_payload(self, data: Dict) -> Dict[str, int]:
+        """Process a Sporttery API response payload and save to database.
+
+        Accepts the raw JSON response (either fetched internally or
+        ingested from an external fetcher) and writes the data to DB.
+        """
+        start_time = time.time()
+        logger.info("Processing Sporttery payload...")
+
+        if not data:
+            raise Exception("Empty payload")
+
+        match_info_list = data.get("value", {}).get("matchInfoList", [])
+        return await self._save_matches(match_info_list, start_time)
+
     async def crawl(self) -> Dict[str, int]:
         """Run full crawl: fetch data and save to database."""
         start_time = time.time()
@@ -346,6 +361,10 @@ class SportteryCrawlerService:
             raise Exception("Failed to fetch data from Sporttery API")
 
         match_info_list = data.get("value", {}).get("matchInfoList", [])
+        return await self._save_matches(match_info_list, start_time)
+
+    async def _save_matches(self, match_info_list: list, start_time: float) -> Dict[str, int]:
+        """Save a list of match info groups to the database."""
         fixtures_created = 0
         fixtures_updated = 0
         odds_saved = 0
