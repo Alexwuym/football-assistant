@@ -16,10 +16,6 @@ async def run_crawler(
 ):
     """
     Manually trigger Sporttery data crawl.
-
-    Fetches latest match schedules and odds from sporttery.cn
-    and updates the database. This endpoint is idempotent - running
-    it multiple times will update existing records rather than create duplicates.
     """
     try:
         logger.info("Manual crawler trigger received")
@@ -40,7 +36,6 @@ async def run_crawler(
 
 @router.get("/status")
 async def crawler_status():
-    """Get crawler status and configuration."""
     return {
         "status": "ready",
         "source": "sporttery.cn",
@@ -51,16 +46,19 @@ async def crawler_status():
 
 @router.get("/debug-fetch")
 async def debug_fetch():
-    """Debug endpoint: directly fetch sporttery API and return diagnostics."""
+    """Debug endpoint: test multiple fetch strategies."""
     import httpx
     import time
     
+    results = {}
+    
+    # Strategy 1: Direct request (current approach)
     url = "https://webapi.sporttery.cn/gateway/jc/football/getMatchCalculatorV1.qry"
     params = {
         "poolCode": ["had", "hhad"],
         "_": str(int(time.time() * 1000))
     }
-    headers = {
+    base_headers = {
         "User-Agent": "Mozilla/5.0 (Linux; Android 10; SM-G960U) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
         "Accept": "application/json, text/javascript, */*; q=0.01",
         "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
@@ -69,25 +67,40 @@ async def debug_fetch():
     
     try:
         with httpx.Client(timeout=30, follow_redirects=True) as client:
-            resp = client.get(url, params=params, headers=headers)
-            body = resp.text[:2000]
-            try:
-                json_body = resp.json()
-                json_preview = {k: v for k, v in json_body.items() if k != "value"}
-                if "value" in json_body and isinstance(json_body["value"], dict):
-                    mil = json_body["value"].get("matchInfoList", [])
-                    json_preview["matchInfoList_count"] = len(mil)
-            except Exception:
-                json_preview = None
-                
-            return {
-                "status_code": resp.status_code,
-                "headers": dict(resp.headers),
-                "body_preview": body,
-                "json_preview": json_preview,
+            resp = client.get(url, params=params, headers=base_headers)
+            results["direct"] = {
+                "status": resp.status_code,
+                "content_type": resp.headers.get("content-type"),
+                "is_json": resp.headers.get("content-type", "").startswith("application/json"),
             }
     except Exception as e:
-        return {
-            "error": str(e),
-            "error_type": type(e).__name__,
-        }
+        results["direct"] = {"error": str(e)}
+    
+    # Strategy 2: Cookie-based request
+    try:
+        with httpx.Client(timeout=30, follow_redirects=True) as client:
+            # First visit main page to get cookies
+            main_resp = client.get("https://www.sporttery.cn/", headers={
+                "User-Agent": base_headers["User-Agent"],
+            })
+            results["main_page_status"] = main_resp.status_code
+            results["main_page_cookies"] = dict(client.cookies)
+            
+            # Then make API request with cookies
+            resp2 = client.get(url, params=params, headers=base_headers)
+            results["with_cookies"] = {
+                "status": resp2.status_code,
+                "content_type": resp2.headers.get("content-type"),
+                "is_json": resp2.headers.get("content-type", "").startswith("application/json"),
+            }
+            if resp2.status_code == 200:
+                try:
+                    data = resp2.json()
+                    results["with_cookies"]["success"] = data.get("success")
+                    results["with_cookies"]["errorCode"] = data.get("errorCode")
+                except:
+                    pass
+    except Exception as e:
+        results["with_cookies"] = {"error": str(e)}
+    
+    return results
