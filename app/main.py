@@ -43,10 +43,13 @@ app = FastAPI(
 )
 
 # CORS middleware
+# Note: allow_credentials must be False when allow_origins=["*"], otherwise
+# browsers reject the wildcard Access-Control-Allow-Origin header.
+# This API is public (no auth cookies needed), so credentials=False is safe.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins_list,
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
     expose_headers=["*"],
