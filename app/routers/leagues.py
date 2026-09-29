@@ -2,7 +2,7 @@
 League router - league/competition endpoints.
 """
 from typing import Optional
-from fastapi import APIRouter, Depends, Query, HTTPException, status
+from fastapi import APIRouter, Depends, Query, HTTPException, status, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.logging import logger
@@ -16,6 +16,7 @@ router = APIRouter(prefix="/leagues", tags=["Leagues"])
 async def list_leagues(
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(100, ge=1, le=200, description="Items per page"),
+    callback: Optional[str] = Query(None, description="JSONP callback function name"),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -26,7 +27,15 @@ async def list_leagues(
     """
     skip = (page - 1) * page_size
     items, total = await LeagueService.get_leagues(db, skip=skip, limit=page_size)
-    return LeagueListResponse(total=total, items=items)
+    response = LeagueListResponse(total=total, items=items)
+
+    if callback:
+        return Response(
+            content=f"{callback}({response.model_dump_json()});",
+            media_type="application/javascript"
+        )
+
+    return response
 
 
 @router.get("/{league_id}", response_model=LeagueResponse)

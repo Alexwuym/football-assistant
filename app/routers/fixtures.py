@@ -3,7 +3,8 @@ Fixture router - match schedule endpoints.
 """
 from typing import Optional
 from datetime import datetime
-from fastapi import APIRouter, Depends, Query, HTTPException, status
+from fastapi import APIRouter, Depends, Query, HTTPException, status, Response
+import json
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.logging import logger
@@ -26,6 +27,7 @@ async def list_fixtures(
     is_hot: Optional[int] = Query(None, description="Filter hot matches (0/1)"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
+    callback: Optional[str] = Query(None, description="JSONP callback function name"),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -56,7 +58,15 @@ async def list_fixtures(
         db, filters=filters, skip=skip, limit=page_size
     )
 
-    return FixtureListResponse(total=total, items=items)
+    response = FixtureListResponse(total=total, items=items)
+
+    if callback:
+        return Response(
+            content=f"{callback}({response.model_dump_json()});",
+            media_type="application/javascript"
+        )
+
+    return response
 
 
 @router.get("/{fixture_id}", response_model=FixtureResponse)
